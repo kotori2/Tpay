@@ -10,7 +10,9 @@ import com.alibaba.fastjson.JSON;
 import com.sjk.tpay.bll.ApiBll;
 import com.sjk.tpay.imp.CallBackDo;
 import com.sjk.tpay.imp.IHooker;
+import com.sjk.tpay.po.PaySuccessBean;
 import com.sjk.tpay.po.QrBean;
+import com.sjk.tpay.po.QrResultBean;
 import com.sjk.tpay.utils.LogUtils;
 
 import java.util.HashMap;
@@ -32,7 +34,7 @@ public abstract class HookBase implements IHooker {
     //这里是广播的Action,本地的广播我改来就只有一个Action了，根据TYPE来判断类型了。
     public static final String RECV_ACTION = "COM.SJK.RECV_ACTION";
     //本广播的操作TYPE是什么，getSringExtra
-    public static final String RECV_ACTION_DATE = "data";
+    public static final String RECV_ACTION_DATA = "data";
     //本广播的操作TYPE是什么，getSringExtra
     public static final String RECV_ACTION_TYPE = "actiontype";
 
@@ -59,6 +61,7 @@ public abstract class HookBase implements IHooker {
     }
 
     private void hookMainInOtherAppContext(final String processName) {
+        LogUtils.show("HookBase:hookMainInOtherAppContext");
         XposedHelpers.findAndHookMethod(ContextWrapper.class, "attachBaseContext", Context.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -179,21 +182,23 @@ public abstract class HookBase implements IHooker {
 
     @Override
     public void addLocalTaskI() {
+        //客户端获取到二维码链接以后的回调
         addLocalTask(getLocalQrActionType(), new CallBackDo() {
             @Override
             public void callBack(Intent intent) throws Error, Exception {
-                String data = intent.getStringExtra(RECV_ACTION_DATE);
-                QrBean qrBean = JSON.parseObject(data, QrBean.class);
-                ApiBll.getInstance().sendQR(qrBean);
+                String data = intent.getStringExtra(RECV_ACTION_DATA);
+                QrResultBean qrResultBean = JSON.parseObject(data, QrResultBean.class);
+                ApiBll.getInstance().sendQR(qrResultBean);
             }
         });
 
+        //TODO:客户端接收到订单信息以后的回调
         addLocalTask(getLocalBillActionType(), new CallBackDo() {
             @Override
             public void callBack(Intent intent) throws Error, Exception {
-                String data = intent.getStringExtra(RECV_ACTION_DATE);
-                QrBean qrBean = JSON.parseObject(data, QrBean.class);
-                ApiBll.getInstance().payQR(qrBean);
+                String data = intent.getStringExtra(RECV_ACTION_DATA);
+                PaySuccessBean successBean = JSON.parseObject(data, PaySuccessBean.class);
+                ApiBll.getInstance().payQR(successBean);
             }
         });
     }
@@ -216,12 +221,13 @@ public abstract class HookBase implements IHooker {
      * @param money
      * @param mark
      */
-    public void creatQrTask(Integer money, String mark) {
+    public void creatQrTask(Integer money, String mark, int taskID) {
         Intent broadCastIntent = new Intent();
         broadCastIntent.setAction(getRemoteAction());
         broadCastIntent.putExtra(RECV_ACTION_TYPE, getRemoteQrActionType());
-        broadCastIntent.putExtra("money", formatMoneyToYuan(money + ""));
-        broadCastIntent.putExtra("mark", mark);
+        broadCastIntent.putExtra("amount", formatMoneyToYuan(money + ""));
+        broadCastIntent.putExtra("comment", mark);
+        broadCastIntent.putExtra("taskID", taskID);
         HKApplication.app.sendBroadcast(broadCastIntent);
     }
 

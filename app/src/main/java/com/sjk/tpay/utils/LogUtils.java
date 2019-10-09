@@ -1,5 +1,7 @@
 package com.sjk.tpay.utils;
 
+import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.util.Log;
 
 import de.robv.android.xposed.XposedBridge;
@@ -13,13 +15,13 @@ import de.robv.android.xposed.XposedBridge;
  */
 public class LogUtils {
 
-    public static void show(String tips) {
+    public static void show(String data) {
         try {
-            XposedBridge.log(tips);
+            XposedBridge.log(getFunctionName() + data);
         } catch (NoClassDefFoundError ignore) {
 
         }
-        Log.e("LogUtils", getFunctionName() + tips);
+        Log.d("LogUtils", getFunctionName() + data);
     }
 
     private static String getFunctionName() {

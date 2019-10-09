@@ -3,7 +3,7 @@ package com.sjk.tpay.utils;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;

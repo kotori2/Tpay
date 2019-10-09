@@ -1,6 +1,7 @@
 package com.sjk.tpay.po;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.annotation.JSONField;
 
 
 /**
@@ -13,99 +14,73 @@ import com.alibaba.fastjson.JSON;
 public class QrBean {
 
     //以后自己可以添加更多支付方式，没必要用枚举
-    public static final String WECHAT = "wechat";
-    public static final String ALIPAY = "alipay";
+    public static final int WECHAT = 1;
+    public static final int ALIPAY = 2;
 
 
     /**
-     * 这个是服务器上此订单的id，这个暂时不加用处
+     * 任务ID
      */
-    private Integer id;
+    @JSONField(name = "task_id")
+    private int taskID;
 
     /**
      * 渠道类型
      */
-    private String channel;//wechat,alipay
+    @JSONField(name = "channel")
+    private int channel;//WECHAT,ALIPAY
 
     /**
      * 二维码的金额,单位为分
      */
-    private Integer money;
+    @JSONField(name = "amount")
+    private int amount;
+
 
     /**
-     * 此而二维码的链接
+     * 订单id，用于备注
      */
-    private String url;
+    @JSONField(name = "order_id")
+    private String orderID;
 
-    /**
-     * 二维码的收款方备注
-     */
-    private String mark_sell;
 
-    /**
-     * 二维码的付款方备注
-     */
-    private String mark_buy;
+    public int getTaskID() { return taskID; }
 
-    /**
-     * 订单id
-     */
-    private String order_id;
+    public void setTaskID(int taskID) { this.taskID = taskID; }
 
-    public Integer getId() {
-        return id == null ? 0 : id;
+    public int getChannel() {
+        return channel;
     }
 
-    public void setId(Integer id) {
-        this.id = id;
+    public String getChannelString() {
+        switch (channel) {
+            case WECHAT:
+                return "WECHAT";
+            case ALIPAY:
+                return "ALIPAY";
+            default:
+                return "UNKNOWN";
+        }
     }
 
-    public String getChannel() {
-        return channel == null ? "" : channel;
-    }
-
-    public void setChannel(String channel) {
+    public void setChannel(int channel) {
         this.channel = channel;
     }
 
-    public Integer getMoney() {
-        return money == null ? 0 : money;
+    public Integer getAmount() {
+        return amount;
     }
 
-    public void setMoney(Integer money) {
-        this.money = money;
+    public void setAmount(Integer amount) {
+        this.amount = amount;
     }
 
-    public String getUrl() {
-        return url == null ? "" : url;
+    public String getOrderID() {
+        return orderID == null ? "" : orderID;
     }
 
-    public void setUrl(String url) {
-        this.url = url;
-    }
-
-    public String getMark_sell() {
-        return mark_sell == null ? "" : mark_sell;
-    }
-
-    public void setMark_sell(String mark_sell) {
-        this.mark_sell = mark_sell;
-    }
-
-    public String getMark_buy() {
-        return mark_buy == null ? "" : mark_buy;
-    }
-
-    public void setMark_buy(String mark_buy) {
-        this.mark_buy = mark_buy;
-    }
-
-    public String getOrder_id() {
-        return order_id == null ? "" : order_id;
-    }
-
-    public void setOrder_id(String order_id) {
-        this.order_id = order_id;
+    public void setOrderID(String orderID) {
+        this.orderID = orderID;
     }
 
     @Override

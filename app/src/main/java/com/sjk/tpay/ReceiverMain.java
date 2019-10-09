@@ -27,7 +27,7 @@ public class ReceiverMain extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        String data = intent.getStringExtra(HookBase.RECV_ACTION_DATE) + intent.getStringExtra(HookBase.RECV_ACTION_TYPE);
+        String data = intent.getStringExtra(HookBase.RECV_ACTION_DATA) + intent.getStringExtra(HookBase.RECV_ACTION_TYPE);
         if (lastMsg.contentEquals(data)) {
             return;
         } else {
@@ -36,7 +36,8 @@ public class ReceiverMain extends BroadcastReceiver {
 
         try {
             String type = intent.getStringExtra(HookBase.RECV_ACTION_TYPE);
-            LogUtils.show("onReceive：" + type + "|" + mLocalTaskMap);
+            LogUtils.show("onReceive：" + type + "|" + mLocalTaskMap.toString());
+            LogUtils.show("onReceive：data = " + data);
             Set<String> set = mLocalTaskMap.keySet();
             for (String str : set) {
                 if (type.contentEquals(str)) {

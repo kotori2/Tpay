@@ -9,11 +9,14 @@ import android.view.WindowManager;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.sjk.tpay.imp.CallBackDo;
+import com.sjk.tpay.po.PaySuccessBean;
 import com.sjk.tpay.po.QrBean;
+import com.sjk.tpay.po.QrResultBean;
 import com.sjk.tpay.utils.ReflecUtils;
 import com.sjk.tpay.utils.LogUtils;
-import com.sjk.tpay.utils.PayUtils;
 import com.sjk.tpay.utils.XmlToJson;
+
+import java.util.Locale;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -23,6 +26,7 @@ import de.robv.android.xposed.XposedHelpers;
 public class HookWechat extends HookBase {
 
     private static HookWechat mHookWechat;
+    private int taskID;
 
     public static synchronized HookWechat getInstance() {
         if (mHookWechat == null) {
@@ -39,9 +43,10 @@ public class HookWechat extends HookBase {
     }
 
     @Override
-    public void hookCreatQr() throws Error, Exception {
-        Class<?> clazz = XposedHelpers.findClass("com.tencent.mm.plugin.collect.b.s", mAppClassLoader);
-        XposedHelpers.findAndHookMethod(clazz, "a",
+    public void hookCreatQr() {
+        LogUtils.show("HookWechat:hookCreatQr");
+        Class<?> clazz = XposedHelpers.findClass("com.tencent.mm.plugin.collect.model.s", mAppClassLoader);
+        XposedHelpers.findAndHookMethod(clazz, "onGYNetEnd",
                 int.class, String.class, org.json.JSONObject.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param)
@@ -52,28 +57,28 @@ public class HookWechat extends HookBase {
                     protected void afterHookedMethod(MethodHookParam param)
                             throws Throwable {
                         try {
-                            QrBean qrBean = new QrBean();
-                            qrBean.setChannel(QrBean.WECHAT);
-                            Double money = ReflecUtils.findField(param.thisObject.getClass(), double.class, 0, false)
+                            LogUtils.show("com.tencent.mm.plugin.collect.model.s:s {afterHookedMethod}");
+                            //QrBean qrBean = new QrBean();
+                            //qrBean.setChannel(QrBean.WECHAT);
+                            Double amount = ReflecUtils.findField(param.thisObject.getClass(), double.class, 0, false)
                                     .getDouble(param.thisObject);
-                            String mark = (String) ReflecUtils.findField(param.thisObject.getClass(), String.class, 1, false)
+                            String comment = (String) ReflecUtils.findField(param.thisObject.getClass(), String.class, 1, false)
                                     .get(param.thisObject);
                             String payurl = (String) ReflecUtils.findField(param.thisObject.getClass(), String.class, 2, false)
                                     .get(param.thisObject);
 
+                            LogUtils.show(String.format(Locale.CHINA, "微信成功生成二维码: amount=%s, comment=%s, URL=%s, taskID=%d", amount.toString(), comment, payurl, taskID));
 
-                            LogUtils.show("微信成功生成二维码：" + money.floatValue() + "|" + mark);
-                            qrBean.setMark_sell(mark);
-                            qrBean.setUrl(payurl);
-                            qrBean.setMoney(PayUtils.formatMoneyToCent(money.floatValue() + ""));
-                            qrBean.setChannel(QrBean.WECHAT);
+                            QrResultBean qrResultBean = new QrResultBean();
+                            qrResultBean.setTaskID(taskID);
+                            qrResultBean.setURL(payurl);
 
                             Intent broadCastIntent = new Intent(RECV_ACTION);
-                            broadCastIntent.putExtra(RECV_ACTION_DATE, qrBean.toString());
+                            broadCastIntent.putExtra(RECV_ACTION_DATA, qrResultBean.toString());
                             broadCastIntent.putExtra(RECV_ACTION_TYPE, getLocalQrActionType());
                             mContext.sendBroadcast(broadCastIntent);
                         } catch (Error | Exception ignore) {
-                            LogUtils.show(ignore.getMessage());
+                            ignore.printStackTrace();
                         }
                     }
                 });
@@ -97,13 +102,14 @@ public class HookWechat extends HookBase {
                             if (type != null && type == 318767153) {
                                 JSONObject msg = XmlToJson.documentToJSONObject(contentValues.getAsString("content"))
                                         .getJSONObject("appmsg");
+                                LogUtils.show(msg.toString());
                                 if (!msg.getString("type").equals("5")) {
-                                    //首款类型type为5
+                                    //收款类型type为5
                                     return;
                                 }
-                                QrBean qrBean = new QrBean();
-                                qrBean.setChannel(QrBean.WECHAT);
-                                qrBean.setMoney((int) (Float.valueOf(msg.getJSONObject("mmreader")
+                                PaySuccessBean paySuccessBean = new PaySuccessBean();
+                                paySuccessBean.setChannel(QrBean.WECHAT);
+                                paySuccessBean.setAmount((int) (Float.valueOf(msg.getJSONObject("mmreader")
                                         .getJSONObject("template_detail")
                                         .getJSONObject("line_content")
                                         .getJSONObject("topline")
@@ -111,7 +117,7 @@ public class HookWechat extends HookBase {
                                         .getString("word")
                                         .replace("￥", "")) * 100));
 
-                                qrBean.setOrder_id(msg.getString("template_id"));
+                                paySuccessBean.setMerchantOrderId(msg.getString("template_id"));
                                 JSONArray lines = msg.getJSONObject("mmreader")
                                         .getJSONObject("template_detail")
                                         .getJSONObject("line_content")
@@ -125,30 +131,30 @@ public class HookWechat extends HookBase {
                                     if (lines.getJSONObject(i)
                                             .getJSONObject("key")
                                             .getString("word").contains("付款方")) {
-                                        qrBean.setMark_buy(lines.getJSONObject(i)
+                                        paySuccessBean.setMessageBuy(lines.getJSONObject(i)
                                                 .getJSONObject("value")
                                                 .getString("word"));
                                     } else if (lines.getJSONObject(i)
                                             .getJSONObject("key")
                                             .getString("word").contains("收款方")) {
-                                        qrBean.setMark_sell(lines.getJSONObject(i)
+                                        paySuccessBean.setMessageSell(lines.getJSONObject(i)
                                                 .getJSONObject("value")
                                                 .getString("word"));
                                     }
                                 }
-                                if (TextUtils.isEmpty(qrBean.getMark_sell())) {
+                                if (TextUtils.isEmpty(paySuccessBean.getMessageSell())) {
                                     return;
                                 }
 
-                                LogUtils.show("微信收到支付订单：" + qrBean.getMoney() + "|" + qrBean.getMark_sell() + "|" + qrBean.getMark_buy());
+                                LogUtils.show("微信收到支付订单：" + paySuccessBean.getAmount() + "|" + paySuccessBean.getMessageSell() + "|" + paySuccessBean.getMessageBuy());
 
                                 Intent broadCastIntent = new Intent(RECV_ACTION);
-                                broadCastIntent.putExtra(RECV_ACTION_DATE, qrBean.toString());
+                                broadCastIntent.putExtra(RECV_ACTION_DATA, paySuccessBean.toString());
                                 broadCastIntent.putExtra(RECV_ACTION_TYPE, getLocalBillActionType());
                                 mContext.sendBroadcast(broadCastIntent);
                             }
-                        } catch (Error | Exception e) {
-
+                        } catch (Exception e) {
+                            e.printStackTrace();
                         }
                     }
                 });
@@ -162,10 +168,11 @@ public class HookWechat extends HookBase {
                 LogUtils.show("获取微信二维码");
                 Intent intent2 = new Intent(mContext, XposedHelpers.findClass(
                         "com.tencent.mm.plugin.collect.ui.CollectCreateQRCodeUI", mContext.getClassLoader()));
-                intent2.putExtra("mark", intent.getStringExtra("mark"));
-                intent2.putExtra("money", intent.getStringExtra("money"));
+                intent2.putExtra("comment", intent.getStringExtra("comment"));
+                intent2.putExtra("amount", intent.getStringExtra("amount"));
+                intent2.putExtra("taskID", intent.getIntExtra("taskID", 0));
                 intent2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                mContext.startActivity(intent2);
+                mContext.startActivity(intent2); //此处调起CollectCreateQRCodeUI.initView，下方的afterHookedMethod
             }
         });
     }
@@ -208,17 +215,19 @@ public class HookWechat extends HookBase {
                             throws Throwable {
                         try {
                             Intent intent = ((Activity) param.thisObject).getIntent();
-                            String mark = intent.getStringExtra("mark");
-                            String money = intent.getStringExtra("money");
-                            if (TextUtils.isEmpty(mark)) {
+                            String comment = intent.getStringExtra("comment");
+                            String amount = intent.getStringExtra("amount");
+                            taskID = intent.getIntExtra("taskID", 0);
+                            if (TextUtils.isEmpty(comment)) {
                                 return;
                             }
-                            Class<?> bs = XposedHelpers.findClass("com.tencent.mm.plugin.collect.b.s", mAppClassLoader);
-                            Object obj = XposedHelpers.newInstance(bs, Double.valueOf(money), "1", mark);
+                            Class<?> bs = XposedHelpers.findClass("com.tencent.mm.plugin.collect.model.s", mAppClassLoader);
+                            Object obj = XposedHelpers.newInstance(bs, Double.valueOf(amount), "1", comment);
+                            //XposedBridge.log("com.tencent.mm.plugin.collect.model.s called.");
 
-                            XposedHelpers.callMethod(param.thisObject, "a", obj, true, true);
+                            XposedHelpers.callMethod(param.thisObject, "doSceneProgress", obj, true, true, 1);
                         } catch (Error | Exception ignore) {
-                            LogUtils.show(ignore.getMessage()+"");
+                            ignore.printStackTrace();
                         }
                     }
                 });

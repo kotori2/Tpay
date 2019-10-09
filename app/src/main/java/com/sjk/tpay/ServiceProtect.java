@@ -6,10 +6,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 
-import com.sjk.tpay.po.Configer;
 import com.sjk.tpay.utils.LogUtils;
-
-import java.util.Calendar;
 
 /**
  * @ Created by Dlg
@@ -24,6 +21,7 @@ public class ServiceProtect extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        LogUtils.show("ServiceProtect启动");
         handler.sendEmptyMessage(0);
     }
 
@@ -35,6 +33,11 @@ public class ServiceProtect extends Service {
     private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
+            if(!Params.getInstance().getStatus()){
+                LogUtils.show("ServiceProtect 需要被杀进程");
+                stopSelf();
+                return;
+            }
             super.handleMessage(msg);
             if (System.currentTimeMillis() - ServiceMain.mLastQueryTime > 60000) {
                 startService(new Intent(ServiceProtect.this.getApplicationContext(), ServiceMain.class));
@@ -49,8 +52,11 @@ public class ServiceProtect extends Service {
         super.onDestroy();
         handler.removeMessages(0);
         LogUtils.show("Protect服务被杀死");
-        Intent intent = new Intent(this.getApplicationContext(), ServiceProtect.class);
-        this.startService(intent);
+        if(Params.getInstance().getStatus()) {
+            LogUtils.show("Protect服务重启");
+            Intent intent = new Intent(this.getApplicationContext(), ServiceProtect.class);
+            this.startService(intent);
+        }
     }
 
 

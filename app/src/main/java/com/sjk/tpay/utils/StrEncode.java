@@ -2,6 +2,7 @@ package com.sjk.tpay.utils;
 
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -24,9 +25,6 @@ import javax.crypto.spec.DESKeySpec;
  * @ QQ群：524901982
  */
 public class StrEncode {
-
-    private final void  kk(String k,String kk){
-    }
     /**
      * DES加密
      *
@@ -34,6 +32,7 @@ public class StrEncode {
      * @param pass      密码
      * @return
      */
+    @Deprecated
     public static String encoderByDES(String plainText, String pass) {
         try {
             byte[] result = coderByDES(plainText.getBytes("UTF-8"), pass,
@@ -52,6 +51,7 @@ public class StrEncode {
      * @param pass       密码
      * @return @NotNull 失败返回空的文本，非Null
      */
+    @Deprecated
     public static String decoderByDES(String secretText, String pass) {
         try {
             byte[] result = coderByDES(hexStr2ByteArr(secretText), pass,
@@ -59,37 +59,6 @@ public class StrEncode {
             return new String(result, "UTF-8");
         } catch (Exception ex) {
             ex.printStackTrace();
-            return "";
-        }
-    }
-
-    /**
-     * MD5方式加密字符串
-     *
-     * @param str 要加密的字符串
-     * @return 加密后的字符串
-     */
-    public static String encoderByMd5(String str) {
-        char hexDigits[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
-        try {
-            MessageDigest md = MessageDigest
-                    .getInstance("MD5");
-            md.update(str.getBytes());
-            byte tmp[] = md.digest(); // MD5 的计算结果是一个 128 位的长整数，
-            // 用字节表示就是 16 个字节
-            char strchar[] = new char[16 * 2]; // 每个字节用 16 进制表示的话，使用两个字符，
-            // 所以表示成 16 进制需要 32 个字符
-            int k = 0; // 表示转换结果中对应的字符位置
-            for (int i = 0; i < 16; i++) { // 从第一个字节开始，对 MD5 的每一个字节
-                // 转换成 16 进制字符的转换
-                byte byte0 = tmp[i]; // 取第 i 个字节
-                strchar[k++] = hexDigits[byte0 >>> 4 & 0xf]; // 取字节中高 4 位的数字转换,
-                // >>> 为逻辑右移，将符号位一起右移
-                strchar[k++] = hexDigits[byte0 & 0xf]; // 取字节中低 4 位的数字转换
-            }
-            return new String(strchar); // 换后的结果转换为字符串
-        } catch (Exception e) {
-            e.printStackTrace();
             return "";
         }
     }
@@ -110,6 +79,7 @@ public class StrEncode {
      * @throws IllegalBlockSizeException
      * @throws UnsupportedEncodingException
      */
+    @Deprecated
     private static byte[] coderByDES(byte[] plainText, String key, int mode)
             throws InvalidKeyException, InvalidKeySpecException,
             NoSuchAlgorithmException, NoSuchPaddingException,
@@ -136,7 +106,7 @@ public class StrEncode {
     private static byte[] makeKey(String key)
             throws UnsupportedEncodingException {
         byte[] keyByte = new byte[8];
-        byte[] keyResult = key.getBytes("UTF-8");
+        byte[] keyResult = key.getBytes(StandardCharsets.UTF_8);
         for (int i = 0; i < keyResult.length && i < keyByte.length; i++) {
             keyByte[i] = keyResult[i];
         }
@@ -151,7 +121,7 @@ public class StrEncode {
      * @param arrB 需要转换的byte数组
      * @return 转换后的字符串
      */
-    private static String byteArr2HexStr(byte[] arrB) {
+    public static String byteArr2HexStr(byte[] arrB) {
         int iLen = arrB.length;
         // 每个byte用两个字符才能表示，所以字符串的长度是数组长度的两倍
         StringBuilder sb = new StringBuilder(iLen * 2);

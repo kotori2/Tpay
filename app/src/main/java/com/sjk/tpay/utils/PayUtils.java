@@ -1,27 +1,6 @@
 package com.sjk.tpay.utils;
 
-import android.content.Context;
-import android.content.Intent;
-import android.text.TextUtils;
-
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.Volley;
-import com.sjk.tpay.HookMain;
-import com.sjk.tpay.bll.ApiBll;
-import com.sjk.tpay.po.AliBillList;
-import com.sjk.tpay.po.QrBean;
-import com.sjk.tpay.request.StringRequestGet;
-
 import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-
-import de.robv.android.xposed.XposedHelpers;
 
 /**
  * @ Created by Dlg

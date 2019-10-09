@@ -1,39 +1,29 @@
 package com.sjk.tpay;
 
-import android.Manifest;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
-import android.support.annotation.NonNull;
-import android.support.design.widget.TextInputLayout;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
+
+import com.google.android.material.textfield.TextInputLayout;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.os.Handler;
+import android.os.Message;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.sjk.tpay.po.Configer;
-import com.sjk.tpay.utils.PayUtils;
+import com.sjk.tpay.bll.ApiBll;
+import com.sjk.tpay.po.Configure;
+import com.sjk.tpay.request.FastJsonRequest;
+import com.sjk.tpay.utils.LogUtils;
 import com.sjk.tpay.utils.SaveUtils;
+import com.sjk.tpay.utils.StrEncode;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
-import static com.sjk.tpay.ServiceMain.mIsRunning;
+//import static com.sjk.tpay.ServiceMain.mIsRunning;
 
 /**
  * @ Created by Dlg
@@ -44,34 +34,49 @@ import static com.sjk.tpay.ServiceMain.mIsRunning;
  * @ QQ群：524901982
  */
 public class ActMain extends AppCompatActivity {
+    private static class ActivityHandler extends Handler {
+        ActMain mContext;
+        ActivityHandler(ActMain context){
+            mContext = context;
+        }
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what){
+                case 1:
+                mContext.mBtnSubmit.setText("确认配置并启动");break;
+                case 2:
+                mContext.mBtnSubmit.setText("停止服务");
+            }
+        }
+    }
 
+    public static Handler handler;
     private EditText mEdtUrl;
-
     private EditText mEdtToken;
-
-    private EditText mEdtPage;
-
+    //private EditText mEdtPage;
     private EditText mEdtTimeNor;
-
     private EditText mEdtTimeSlow;
-
     private Button mBtnSubmit;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        System.loadLibrary("security");
+
+        handler = new ActivityHandler(this);
         setContentView(R.layout.act_main);
         mEdtUrl = ((TextInputLayout) findViewById(R.id.edt_act_main_url)).getEditText();
         mEdtToken = ((TextInputLayout) findViewById(R.id.edt_act_main_token)).getEditText();
-        mEdtPage = ((TextInputLayout) findViewById(R.id.edt_act_main_page)).getEditText();
+        //mEdtPage = ((TextInputLayout) findViewById(R.id.edt_act_main_page)).getEditText();
         mEdtTimeNor = ((TextInputLayout) findViewById(R.id.edt_act_main_time_nor)).getEditText();
         mEdtTimeSlow = ((TextInputLayout) findViewById(R.id.edt_act_main_time_slow)).getEditText();
         mBtnSubmit = findViewById(R.id.btn_submit);
-        ((TextView) findViewById(R.id.txt_version)).setText("Ver：" + BuildConfig.VERSION_CODE);
+        int nativeVersion = Security.getVersion();
+        ((TextView) findViewById(R.id.txt_version)).setText(String.format("Version: %s\nNative version: %d on %s", BuildConfig.VERSION_CODE, nativeVersion, Security.getABI()));
 
 
-        mBtnSubmit.setText(mIsRunning ? "停止服务" : "确认配置并启动");
-        getPermissions();
+        mBtnSubmit.setText(Params.getInstance().getStatus() ? "停止服务" : "确认配置并启动");
     }
 
     /**
@@ -80,9 +85,11 @@ public class ActMain extends AppCompatActivity {
      * @return
      */
     private boolean changeStatus() {
-        mIsRunning = !mIsRunning;
-        mBtnSubmit.setText(mIsRunning ? "停止服务" : "确认配置并启动");
-        return mIsRunning;
+        Params.getInstance().changeStatus();
+        mBtnSubmit.setText(Params.getInstance().getStatus() ? "停止服务" : "确认配置并启动");
+        FastJsonRequest.setSessionID(null);
+        ApiBll.getInstance().unAuthorize();
+        return Params.getInstance().getStatus();
     }
 
     /**
@@ -91,7 +98,9 @@ public class ActMain extends AppCompatActivity {
      * @param view
      */
     public void clsSubmit(View view) {
-        if (!changeStatus()) {
+        changeStatus();
+        //在运行时，直接改变状态并返回
+        if (!Params.getInstance().getStatus()) {
             return;
         }
 
@@ -114,36 +123,21 @@ public class ActMain extends AppCompatActivity {
 
 
         //下面开始获取最新配置并启动服务。
-        Configer.getInstance()
+        Configure.getInstance()
                 .setUrl(mEdtUrl.getText().toString());
-        Configer.getInstance()
+        Configure.getInstance()
                 .setToken(mEdtToken.getText().toString());
-        Configer.getInstance()
-                .setPage(mEdtPage.getText().toString());
-        Configer.getInstance()
+        Configure.getInstance()
                 .setDelay_nor(Integer.valueOf(mEdtTimeNor.getText().toString()));
-        Configer.getInstance()
+        Configure.getInstance()
                 .setDelay_slow(Integer.valueOf(mEdtTimeSlow.getText().toString()));
         //保存配置
-        new SaveUtils().putJson(SaveUtils.BASE, Configer.getInstance()).commit();
+        new SaveUtils().putJson(SaveUtils.BASE, Configure.getInstance()).commit();
 
 
         //有的手机就算已经静态注册服务还是不行启动，我再手动启动一下吧。
         startService(new Intent(this, ServiceMain.class));
         startService(new Intent(this, ServiceProtect.class));
-    }
-
-    private PackageInfo getPackageInfo(String packageName) {
-        PackageInfo pInfo = null;
-        try {
-            //通过PackageManager可以得到PackageInfo
-            PackageManager pManager = getPackageManager();
-            pInfo = pManager.getPackageInfo(packageName, PackageManager.GET_CONFIGURATIONS);
-            return pInfo;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return pInfo;
     }
 
     /**
@@ -154,7 +148,7 @@ public class ActMain extends AppCompatActivity {
     public void clsWechatPay(View view) {
         String time = System.currentTimeMillis() / 1000 + "";
         Toast.makeText(this, "只要能打开收款页面即表示成功，并不会输入和生成二维码", Toast.LENGTH_SHORT).show();
-        HookWechat.getInstance().creatQrTask(12, "test" + time);
+        HookWechat.getInstance().creatQrTask(12, "test" + time, 1);
     }
 
 
@@ -166,98 +160,22 @@ public class ActMain extends AppCompatActivity {
     public void clsAlipayPay(View view) {
         String time = System.currentTimeMillis() / 1000 + "";
         Toast.makeText(this, "此功能可以加群获取支付宝版哦", Toast.LENGTH_SHORT).show();
-        HookAlipay.getInstance().creatQrTask(12, "test" + time);
+        //HookAlipay.getInstance().creatQrTask(12, "test" + time);
     }
 
-    /**
-     * 添加QQ群，保留版权哦。
-     *
-     * @param view
-     */
-    public void clsAddQq(View view) {
-        Intent intent = new Intent();
-        intent.setData(Uri.parse("mqqopensdkapi://bizAgent/qm/qr?url=http%3A%2F%2Fqm.qq.com%2Fcgi-bin%2Fqm%2Fqr%3Ffrom%3Dapp%26p%3Dandroid%26k%3D"
-                + "oRC0TKyL8gc3a2gwJVxa4J9QN9IIqFSv"));
-        try {
-            startActivity(intent);
-        } catch (Exception ignore) {
-            Toast.makeText(this, "请先安装QQ哦才能加群~", Toast.LENGTH_SHORT).show();
+    public void debug(View view) {
+        /*byte[] req = {};
+        for(int i = 0; i < 100000; i++){
+            req = Security.initRequest();
+        }*/
+        byte[] req = Security.initRequest();
+        LogUtils.show("RSA Request: " + StrEncode.byteArr2HexStr(req));
+        byte[] nml = {};
+        String r = "";
+        for(int i = 0; i < 100000; i++){
+            nml = Security.getRequest("{TESTSTRING}");
+            r = Security.getResponse(nml);
         }
-    }
-
-
-    /**
-     * 当获取到权限后才操作的事情
-     */
-    private void onPermissionOk() {
-        mEdtUrl.setText(Configer.getInstance().getUrl());
-        mEdtToken.setText(Configer.getInstance().getToken());
-        mEdtPage.setText(Configer.getInstance().getPage());
-        mEdtTimeNor.setText(Configer.getInstance().getDelay_nor() + "");
-        mEdtTimeSlow.setText(Configer.getInstance().getDelay_slow() + "");
-        if (getIntent().hasExtra("auto")) {
-            clsSubmit(null);
-        }
-    }
-
-    /**
-     * 获取权限。。有些手机很坑，明明是READ_PHONE_STATE权限，却问用户是否允许拨打电话，汗。
-     */
-    private void getPermissions() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            onPermissionOk();
-            return;
-        }
-        List<String> sa = new ArrayList<>();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
-                != PackageManager.PERMISSION_GRANTED) {
-            //申请READ_PHONE_STATE权限。。。。
-            sa.add(Manifest.permission.READ_PHONE_STATE);
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            sa.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            sa.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        }
-        if (sa.size() < 1) {
-            onPermissionOk();
-            return;
-        }
-        ActivityCompat.requestPermissions(this, sa.toArray(new String[]{}), 1);
-    }
-
-
-    /**
-     * 获取到权限后的回调
-     *
-     * @param requestCode
-     * @param permissions
-     * @param grantResults
-     */
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        //获取到了权限之后才可以启动xxxx操作。
-        for (int i = 0; i < grantResults.length; i++) {
-            if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
-                Toast.makeText(this, "部分权限未开启\n可能部分功能暂时无法工作。", Toast.LENGTH_SHORT).show();
-                //如果被永久拒绝。。。那只有引导跳权限设置页
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    if (!shouldShowRequestPermissionRationale(permissions[i])) {
-                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                        intent.setData(Uri.parse("package:" + getPackageName())); // 根据包名打开对应的设置界面
-                        startActivity(intent);
-                        onPermissionOk();
-                        return;
-                    }
-                }
-                break;
-            }
-        }
-        onPermissionOk();
+        LogUtils.show("AES Resp: " + r);
     }
 }

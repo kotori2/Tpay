@@ -7,7 +7,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.support.multidex.MultiDex;
+import androidx.multidex.MultiDex;
+
+import com.sjk.tpay.utils.LogUtils;
 
 import java.util.Iterator;
 import java.util.List;
@@ -21,7 +23,6 @@ import java.util.List;
  * @ QQ群：524901982
  */
 public class HKApplication extends Application {
-
     public static Context app;
 
     @Override
@@ -45,6 +46,7 @@ public class HKApplication extends Application {
         // 程序崩溃时触发线程  以下用来捕获程序崩溃异常并重启应用
         Thread.setDefaultUncaughtExceptionHandler(restartHandler);
         HookList.getInstance();
+        //注册接收器
         registerReceiver(new ReceiverMain(), new IntentFilter(HookBase.RECV_ACTION));
     }
 
@@ -80,7 +82,7 @@ public class HKApplication extends Application {
      */
     private Thread.UncaughtExceptionHandler restartHandler = new Thread.UncaughtExceptionHandler() {
         public void uncaughtException(Thread thread, Throwable ex) {
-            restartApp();//发生崩溃异常时,重启应用
+            //restartApp();//发生崩溃异常时,重启应用
         }
     };
 
